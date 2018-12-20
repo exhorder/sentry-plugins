@@ -1,8 +1,9 @@
 /*eslint-env node*/
 /*eslint no-var:0*/
 var path = require('path'),
-    webpack = require('webpack'),
-    LodashModuleReplacementPlugin = require('lodash-webpack-plugin');
+  webpack = require('webpack'),
+  CompressionPlugin = require('compression-webpack-plugin'),
+  LodashModuleReplacementPlugin = require('lodash-webpack-plugin');
 
 var APPS = [
   'hipchat-ac',
@@ -11,6 +12,7 @@ var APPS = [
 ];
 
 var IS_PRODUCTION = process.env.NODE_ENV === 'production';
+var WEBPACK_MODE = IS_PRODUCTION ? 'production' : 'development';
 
 function getConfig(app) {
   var pyName = app.replace('-', '_');
@@ -18,6 +20,9 @@ function getConfig(app) {
       distPath = staticPrefix + '/dist';
 
   var config = {
+    mode: WEBPACK_MODE,
+    name: app,
+    entry: './' + pyName + '.jsx',
     context: path.join(__dirname, staticPrefix),
     externals: {
       'react': 'React',
@@ -26,12 +31,10 @@ function getConfig(app) {
       'reflux': 'Reflux',
       'moment': 'moment',
       'sentry': 'SentryApp',
-      'prop-types': 'PropTypes',	      
+      'prop-types': 'PropTypes',
     },
-    name: app,
-    entry: pyName,
     module: {
-      loaders: [
+      rules: [
         {
           test: /\.jsx?$/,
           loader: 'babel-loader',
@@ -44,11 +47,6 @@ function getConfig(app) {
       new LodashModuleReplacementPlugin(),
     ],
     resolve: {
-      modules: [
-        __dirname,
-        staticPrefix,
-        'node_modules'
-      ],
       extensions: ['*', '.jsx', '.js']
     },
     output: {
@@ -56,21 +54,16 @@ function getConfig(app) {
       filename: app + '.js',
       sourceMapFilename: app + '.js.map',
     },
-    devtool: IS_PRODUCTION ?
-      '#source-map' :
-      '#cheap-module-eval-source-map'
+    devtool: IS_PRODUCTION ? 'source-map' : 'cheap-module-eval-source-map',
   };
-
 
   // This compression-webpack-plugin generates pre-compressed files
   // ending in .gz, to be picked up and served by our internal static media
   // server as well as nginx when paired with the gzip_static module.
   if (IS_PRODUCTION) {
-    config.plugins.push(new (require('compression-webpack-plugin'))({
-      algorithm: function(buffer, options, callback) {
-        require('zlib').gzip(buffer, callback);
-      },
-      regExp: /\.(js|map|css|svg|html|txt|ico|eot|ttf)$/,
+    config.plugins.push(new CompressionPlugin({
+      algorithm: 'gzip',
+      test: /\.(js|map|css|svg|html|txt|ico|eot|ttf)$/,
     }));
   }
 
